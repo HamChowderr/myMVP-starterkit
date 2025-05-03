@@ -6,6 +6,27 @@ A starter template with Supabase and Next.js.
 
 - [Node.js](https://nodejs.org/en/) (v16 or higher)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop) (includes Docker CLI)
+- [Stripe CLI](https://stripe.com/docs/stripe-cli#install) (optional, required for Stripe integration)
+- [Git](https://git-scm.com/downloads) (for version control)
+- [Stripe Account](https://dashboard.stripe.com/register) (required for Stripe integration)
+
+### Installing Prerequisites
+
+If you don't have these tools installed, follow these instructions:
+
+1. **Install Node.js**:
+   - Download and install from [Node.js website](https://nodejs.org/en/) (LTS version recommended)
+   - Verify installation: `node --version && npm --version`
+
+2. **Install Docker Desktop**:
+   - Download and install from [Docker Desktop website](https://www.docker.com/products/docker-desktop)
+   - Windows/Mac: Follow the installer instructions
+   - Verify installation: `docker --version`
+   - Make sure Docker Desktop is running before starting Supabase
+
+3. **Install Git**:
+   - Download and install from [Git website](https://git-scm.com/downloads)
+   - Verify installation: `git --version`
 
 Note: We'll be using `npx` to run Supabase CLI commands instead of installing it globally. This ensures:
 - Everyone uses the same CLI version
@@ -48,92 +69,30 @@ Your application is now running on http://localhost:3000, and you can access the
 
 ---
 
-## 🚀 First-time Project Setup (UI, Auth, Infinite Query, Dropzone, and More)
+## Environment Variables Setup
 
-This project uses the [Supabase UI Library](https://supabase.com/ui/docs/getting-started/introduction) and shadcn/ui blocks for rapid, type-safe, and beautiful UI development. **You must run these commands once after cloning the repo to scaffold all required UI, authentication, and utility components.**
-
-### 1. Install Supabase UI Library Client for Next.js
-```
-npx shadcn@latest add https://supabase.com/ui/r/supabase-client-nextjs.json
-```
-- Sets up a Supabase client for SSR and App Router support.
-- If you already have a Supabase client, you may skip this step.
-
-### 2. Add Password-based Authentication
-```
-npx shadcn@latest add https://supabase.com/ui/r/password-based-auth-nextjs.json
-```
-- Adds all pages and components for password-based authentication.
-- See the `.env` section below for required environment variables.
-
-### 3. Add Dropzone (File Upload) Component
-```
-npx shadcn@latest add https://supabase.com/ui/r/dropzone-nextjs.json
-```
-- Adds a drag-and-drop file upload component for Supabase Storage.
-
-### 4. Add Infinite Query Hook
-```
-npx shadcn@latest add https://supabase.com/ui/r/infinite-query-hook.json
-```
-- Adds a React hook for infinite lists and tables with Supabase.
-
-### 5. Add AI Editor Rules for Supabase
-```
-npx shadcn@latest add https://supabase.com/ui/r/ai-editor-rules.json
-```
-- Adds project-specific rules for AI code editors to `.cursor/rules`.
-
----
-
-### 6. Environment Variables
 Create a `.env.local` file in your project root:
 ```
-NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-STRIPE_WEBHOOK_SECRET=your-stripe-webhook-secret  # Required for Stripe integration
+# Supabase variables - DO NOT CHANGE for local development
+NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+
+# Stripe variables - These need to be set from your Stripe account
+STRIPE_PUBLISHABLE_KEY=pk_test_... # From Stripe Dashboard > Developers > API keys
+STRIPE_SECRET_KEY=sk_test_...      # From Stripe Dashboard > Developers > API keys
+STRIPE_WEBHOOK_SECRET=whsec_...     # From running the Stripe CLI webhook command
 ```
-- For supabase.com: Find these in the Connect modal or API settings.
-- For local Supabase: Run `supabase start` or `supabase status`.
 
----
+### Supabase Variables
+For local Supabase development, the URL and anon key are fixed standard values. Do not change them as long as you're running Supabase locally with the default configuration.
 
-### 7. Email Templates (for Auth)
-- Add a sign-up email template to your Supabase project:
-```html
-<h2>Confirm your signup</h2>
-<p>Follow this link to confirm your user:</p>
-<p>
-  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next={{ .RedirectTo }}">Confirm your email</a>
-</p>
-```
-- Add a reset password email template:
-```html
-<h2>Reset Password</h2>
-<p>Follow this link to reset the password for your user:</p>
-<p>
-  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next={{ .RedirectTo }}">Reset Password</a>
-</p>
-```
-- See [Supabase Email Templates Guide](https://supabase.com/docs/guides/auth/auth-email-templates) for details.
-
----
-
-### 8. Route and Redirect Configuration
-- Set your site URL in the Supabase Dashboard (URL Configuration).
-- Add `/auth/forgot-password` to the list of Redirect URLs.
-- Update redirect paths in `login-form.tsx` and `update-password-form.tsx` as needed.
-
----
-
-### 9. Type Generation (Recommended)
-- Generate TypeScript types from your Supabase schema for full type safety:
-  - [Supabase Type Generation Guide](https://supabase.com/docs/guides/api/generating-types)
-
----
-
-### 10. Monorepo Note
-- If using a monorepo, move the `.cursor` directory to the root and update all paths in `.mdc` files.
+### Stripe Variables
+To get your Stripe API keys:
+1. Create a [Stripe account](https://dashboard.stripe.com/register) if you don't have one
+2. Go to the [Stripe Dashboard](https://dashboard.stripe.com)
+3. Navigate to Developers > API keys
+4. Copy your publishable key (starts with `pk_test_`) and secret key (starts with `sk_test_`)
+5. The webhook secret will be provided when you run the Stripe CLI webhook command (explained in the Stripe Integration section)
 
 ---
 
@@ -141,37 +100,121 @@ STRIPE_WEBHOOK_SECRET=your-stripe-webhook-secret  # Required for Stripe integrat
 
 To enable Stripe integration for local development, follow these steps:
 
-### 1. Install Stripe CLI
+### 1. Create a Stripe Account
+If you don't already have one, [register for a Stripe account](https://dashboard.stripe.com/register). All testing can be done in test mode, so you don't need to provide real banking information.
+
+### 2. Install Stripe CLI
 Download and install the Stripe CLI from [the official Stripe CLI page](https://stripe.com/docs/stripe-cli#install).
 
-### 2. Login to Stripe via CLI
+**Important Note**: This project requires the Stripe CLI to be installed directly on your system (not in Docker). Make sure to:
+
+- Windows: Download the zip file `stripe_1.26.1_windows_x86_64.zip` from [Stripe CLI Releases](https://github.com/stripe/stripe-cli/releases/latest), extract it, and add the folder to your PATH
+- macOS: Use `brew install stripe/stripe-cli/stripe`
+- Linux: Download the appropriate package from [Stripe CLI Releases](https://github.com/stripe/stripe-cli/releases/latest)
+
+After installation, verify the CLI is working by running:
+```bash
+stripe --version
+```
+
+The Stripe CLI must be accessible from your system's PATH environment variable.
+
+### 3. Login to Stripe via CLI
 In your terminal, run:
 ```bash
 stripe login
 ```
 This will prompt you to open a link in your browser. Complete the login process, then return to your terminal.
 
-### 3. Forward Webhook Events to Your Local Server
+### 4. Forward Webhook Events to Your Local Server
 Run the following command to forward Stripe webhook events to your local API endpoint:
 ```bash
 stripe listen --forward-to localhost:3000/api/stripe/webhooks
 ```
 This will output a webhook signing secret (e.g., `whsec_...`).
 
-### 4. Add the Webhook Secret to Your Environment
+### 5. Add the Webhook Secret to Your Environment
 Add the following to your `.env.local` file (or `.env` if you do not have a local override):
 ```
 STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
-### 5. Trigger Product and Price Events
+### 6. Create Required Database Tables in Supabase
+Before triggering Stripe events, you need to create the necessary tables in Supabase to store product and price information:
+
+#### Option 1: Using Migration File (Recommended)
+Create a migration file in the `supabase/migrations` directory:
+
+1. Create a new migration:
+```bash
+npx supabase migration new add_products_and_prices_tables
+```
+
+2. Add the following SQL to the generated migration file:
+```sql
+-- Create products table
+CREATE TABLE IF NOT EXISTS products (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  stripe_id TEXT UNIQUE NOT NULL,
+  active BOOLEAN DEFAULT TRUE,
+  name TEXT NOT NULL,
+  description TEXT,
+  image TEXT,
+  metadata JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Create prices table
+CREATE TABLE IF NOT EXISTS prices (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  stripe_id TEXT UNIQUE NOT NULL,
+  product_id UUID REFERENCES products(id),
+  active BOOLEAN DEFAULT TRUE,
+  description TEXT,
+  unit_amount BIGINT,
+  currency TEXT,
+  type TEXT,
+  interval TEXT,
+  interval_count INTEGER,
+  trial_period_days INTEGER,
+  metadata JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Add RLS
+ALTER TABLE products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE prices ENABLE ROW LEVEL SECURITY;
+
+-- Create policies
+CREATE POLICY "Allow public read-only access to products" ON products
+  FOR SELECT USING (true);
+  
+CREATE POLICY "Allow public read-only access to prices" ON prices
+  FOR SELECT USING (true);
+```
+
+3. Apply the migration:
+```bash
+npx supabase migration up
+```
+
+#### Option 2: Using Supabase Studio UI
+1. Open Supabase Studio at [http://localhost:54323](http://localhost:54323)
+2. Go to the "Table Editor" in the sidebar
+3. Click "Create a new table" and create the products table with the fields described in the SQL above
+4. Create another table for prices with the fields described in the SQL above
+5. Add appropriate foreign key references and indexes
+
+### 7. Trigger Product and Price Events
 To simulate Stripe events and create your product and price, run:
 ```bash
 stripe trigger product.created
 stripe trigger price.created
 ```
 
-### 6. Confirm Events in Supabase
+### 8. Confirm Events in Supabase
 - Open [http://localhost:54323](http://localhost:54323) to access Supabase Studio.
 - Use the Table Editor to confirm that the products and prices have been created in your Supabase database.
 
@@ -190,7 +233,7 @@ STRIPE_SECRET_KEY=sk_test_...
 
 ### 2. Run the Stripe MCP Server
 
-There are two ways to run the Stripe MCP server:
+There are three ways to run the Stripe MCP server:
 
 #### Option 1: Using the npm script
 
@@ -232,17 +275,9 @@ These tools can be accessed through AI assistants that support the Model Context
 
 ## Supabase Model Context Protocol (MCP)
 
-The Supabase Model Context Protocol allows you to interact with your Supabase database using AI assistants that support MCP.
+The Supabase Model Context Protocol allows you to interact with your Supabase database using AI assistants that support MCP. The Supabase MCP server automatically connects to your local Supabase instance, so no additional setup is required if you've already started Supabase locally.
 
-### 1. Set Up Your Environment
-
-Ensure your Supabase URL and anon key are in your environment variables:
-```
-NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-local-anon-key
-```
-
-### 2. Run the Supabase MCP Server
+### Running the Supabase MCP Server
 
 There are three ways to run the Supabase MCP server:
 
@@ -262,7 +297,7 @@ run-supabase-mcp.bat
 
 The project has been configured to automatically load the Supabase MCP server when using Cursor. The configuration is in `.cursor/mcp.json`.
 
-### 3. Available Supabase MCP Features
+### Available Supabase MCP Features
 
 The Supabase MCP server provides direct SQL access to your database, allowing you to:
 
@@ -274,152 +309,33 @@ The Supabase MCP server provides direct SQL access to your database, allowing yo
 
 These tools can be accessed through AI assistants that support the Model Context Protocol.
 
-## Project Structure
+---
 
+## 🚀 First-time Project Setup (UI, Auth, Infinite Query, Dropzone, and More)
+
+This project uses the [Supabase UI Library](https://supabase.com/ui/docs/getting-started/introduction) and shadcn/ui blocks for rapid, type-safe, and beautiful UI development. **You must run these commands once after cloning the repo to scaffold all required UI, authentication, and utility components.**
+
+### 1. Install Supabase UI Library Client for Next.js
 ```
-├── supabase/          # Supabase configuration
-│   ├── config.toml    # Project configuration
-│   └── .gitignore     # Supabase specific ignores
-├── .env.local         # Environment variables template
-├── .gitignore        # Project ignores
-└── README.md         # This file
+npx shadcn@latest add https://supabase.com/ui/r/supabase-client-nextjs.json
 ```
+- Sets up a Supabase client for SSR and App Router support.
+- If you already have a Supabase client, you may skip this step.
 
-## Useful Commands
-
-```bash
-# Initialize Supabase project
-npx supabase init
-
-# Start Supabase
-npx supabase start
-
-# Stop Supabase
-npx supabase stop
-
-# Check Supabase Status
-npx supabase status
-
-# Access Supabase Studio
-http://localhost:54323
-
-# Access Database
-npx supabase db psql
-
-# Check Docker status
-docker ps
-
-# Check Docker logs
-docker logs -f supabase-db
+### 2. Add Password-based Authentication
 ```
-
-## Configuration
-
-The project uses the following default ports:
-- **API**: 54321
-- **Studio**: 54323
-- **Inbucket** (Email testing): 54324
-- **SMTP Port**: 54325
-- **POP3 Port**: 54326
-- **Analytics**: 54327
-
-You can modify these in the `config.toml` file if needed.
-
-## Authentication
-
-This project is configured with email authentication:
-- Email signup/signin enabled
-- Email confirmations required
-- Double confirmation for email changes
-
-## Database Management
-
-1. **Access Database**
-   ```bash
-   # Using psql
-   npx supabase db psql
-   ```
-
-2. **Apply Migrations**
-   ```bash
-   npx supabase migration up
-   ```
-
-3. **Create New Migration**
-   ```bash
-   npx supabase migration new <migration-name>
-   ```
-
-## Development Workflow
-
-1. Start local Supabase instance
-2. Make changes to your database using Studio or migrations
-3. Test API endpoints using the API documentation in Studio
-4. Generate updated TypeScript types if schema changes
-5. Commit changes and migrations to version control
-
-## Important: Project Cleanup
-
-Always stop your Supabase containers when you're done working:
-```bash
-npx supabase stop
+npx shadcn@latest add https://supabase.com/ui/r/password-based-auth-nextjs.json
 ```
+- Adds all pages and components for password-based authentication.
+- See the environment variables section above for required environment variables.
 
-This is crucial to:
-- Free up system resources
-- Avoid port conflicts with other projects
-- Prevent unexpected behavior in future sessions
-
-## Debugging Tips
-
-When encountering issues with Supabase commands, always use the `--debug` flag to get detailed error information:
-```bash
-# Examples
-npx supabase start --debug
-npx supabase db reset --debug
-npx supabase migration up --debug
+### 3. Add Dropzone (File Upload) Component
 ```
+npx shadcn@latest add https://supabase.com/ui/r/dropzone-nextjs.json
+```
+- Adds a drag-and-drop file upload component for Supabase Storage.
 
-The debug output will show:
-- Detailed error messages
-- Database queries and responses
-- Container status and logs
-- Network communication details
-
-This information is invaluable for:
-- Identifying the root cause of errors
-- Understanding migration issues
-- Debugging connection problems
-- Resolving permission conflicts
-
-## Troubleshooting
-
-1. **Services Won't Start**
-   - Ensure Docker is running
-   - Check if ports are available
-   - Run `npx supabase stop` and then `npx supabase start`
-   - Check if another Supabase project is running
-
-2. **Port Conflicts**
-   - Run `netstat -ano | findstr :54321` (Windows) or `lsof -i :54321` (Mac/Linux) to check if ports are in use
-   - Stop other Supabase instances
-   - Modify ports in `config.toml` if needed
-
-3. **Database Connection Issues**
-   - Verify PostgreSQL is running: `npx supabase status`
-   - Check connection string in your environment variables
-
-4. **Email Testing**
-   - Use Inbucket at [http://localhost:54324](http://localhost:54324) to catch emails
-   - Check SMTP settings if emails aren't being received
-
-## Additional Resources
-
-- [Supabase Documentation](https://supabase.com/docs)
-- [Supabase CLI Reference](https://supabase.com/docs/reference/cli)
-- [Supabase JavaScript Client](https://supabase.com/docs/reference/javascript)
-- [PostgreSQL Documentation](https://www.postgresql.org/docs/)
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details. 
+### 4. Add Infinite Query Hook
+```
+npx shadcn@latest add https://supabase.com/ui/r/infinite-query-hook.json
+```
