@@ -1,0 +1,178 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Data Fetching Guidelines
+
+When fetching data from Supabase in this project, follow these guidelines:
+
+## Server Components (Preferred)
+
+Use direct Supabase client calls in React Server Components whenever possible:
+
+```typescript
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
+
+export default async function Page() {
+  const supabase = createServerComponentClient({ cookies })
+  
+  const { data, error } = await supabase
+    .from('table_name')
+    .select('*')
+    
+  // Handle data and errors appropriately
+  if (error) {
+    console.error('Error fetching data:', error)
+    // Handle error state
+  }
+  
+  return (
+    <div>
+      {/* Render your data */}
+    </div>
+  )
+}
+```
+
+## Client Components
+
+For client components that need to fetch data:
+
+1. Use the React Query integration with Supabase for efficient data fetching, caching, and state management:
+
+```typescript
+import { useQuery } from '@tanstack/react-query'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+
+export default function ClientComponent() {
+  const supabase = createClientComponentClient()
+  
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['table_name'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('table_name')
+        .select('*')
+        
+      if (error) throw error
+      return data
+    }
+  })
+  
+  if (isLoading) return <div>Loading...</div>
+  if (error) return <div>Error: {error.message}</div>
+  
+  return (
+    <div>
+      {/* Render your data */}
+    </div>
+  )
+}
+```
+
+2. For infinite scrolling or pagination, use the provided infinite query hook:
+
+```typescript
+import { useInfiniteQuery } from '@/lib/hooks/use-infinite-query'
+
+export default function InfiniteList() {
+  const { 
+    data, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage, 
+    status 
+  } = useInfiniteQuery({
+    queryKey: ['infinite-items'],
+    tableName: 'your_table',
+    column: 'id',
+    limit: 10,
+    select: '*, related_table(*)',
+    filter: 'status=active',
+    order: 'created_at.desc'
+  })
+  
+  // Implement rendering and load more button
+}
+```
+
+## Realtime Subscriptions
+
+For real-time data updates:
+
+```typescript
+import { useEffect, useState } from 'react'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+
+export default function RealtimeComponent() {
+  const [messages, setMessages] = useState([])
+  const supabase = createClientComponentClient()
+  
+  useEffect(() => {
+    // Initial fetch
+    const fetchMessages = async () => {
+      const { data } = await supabase.from('messages').select('*')
+      if (data) setMessages(data)
+    }
+    
+    fetchMessages()
+    
+    // Set up realtime subscription
+    const channel = supabase
+      .channel('table-changes')
+      .on('postgres_changes', 
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'messages' 
+        }, 
+        (payload) => {
+          // Handle different event types (INSERT, UPDATE, DELETE)
+          if (payload.eventType === 'INSERT') {
+            setMessages(prev => [...prev, payload.new])
+          }
+          // Handle other event types as needed
+        }
+      )
+      .subscribe()
+      
+    // Cleanup
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
+  
+  return (
+    <div>
+      {/* Render messages */}
+    </div>
+  )
+}
+```
+
+## Error Handling
+
+Always handle errors gracefully:
+
+1. Use try/catch blocks for async operations
+2. Provide meaningful error messages to users
+3. Log errors for debugging purposes
+4. Implement fallback UI states for error conditions
+
+## Performance Considerations
+
+1. Use `.select()` with specific columns rather than `*` when possible
+2. Implement pagination for large datasets
+3. Use `.limit()` to restrict the number of rows returned
+4. Consider using `.single()` when expecting exactly one row
+5. Use `.count()` for getting totals instead of fetching all records
+
+## Security
+
+1. Always validate and sanitize user inputs before using in queries
+2. Use RLS (Row Level Security) policies for table access control
+3. Never expose sensitive data in client components
+4. Use middleware to verify auth state when required
+

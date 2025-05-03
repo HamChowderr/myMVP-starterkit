@@ -1,0 +1,33 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+body {
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  color: rgb(17, 24, 39);
+}
+
+body.dark {
+  color: rgb(243, 244, 246);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(107, 114, 128);
+  border-radius: 9999px;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}

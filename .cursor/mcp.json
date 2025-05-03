@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@modelcontextprotocol/server-postgres", "postgresql://postgres:postgres@127.0.0.1:54322/postgres"]
+    },
+    "stripe": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@stripe/mcp", "--tools=all", "--api-key=$env:STRIPE_SECRET_KEY"]
+    }
+  }
+} 

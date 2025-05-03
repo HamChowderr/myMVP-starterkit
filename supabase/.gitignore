@@ -1,0 +1,31 @@
+# Local development
+.env
+.env.*
+!.env.example
+
+# Generated files
+.temp/
+.branches/
+
+# Database
+volumes/
+seed.sql
+
+# Logs
+*.log
+
+# Secrets
+service-key.json
+config.json
+service_key.json
+supabase_admin_key.txt
+
+# Local project files
+.project
+.dbeaver*
+.DS_Store
+
+# Backups
+*.dump
+*.backup
+/backups/ 
