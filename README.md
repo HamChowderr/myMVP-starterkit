@@ -78,16 +78,16 @@ Follow this step-by-step workflow to set up the complete project:
 
 ### 2. Environment Variables Setup
 
-Create an empty `.env` file at the root of your project with one of these commands:
+Create an empty `.env.local` file at the root of your project with one of these commands:
 
 **Windows (PowerShell):**
 ```powershell
-New-Item -Path .env -ItemType "file" -Force
+New-Item -Path .env.local -ItemType "file" -Force
 ```
 
 **Mac/Linux (Bash):**
 ```bash
-touch .env
+touch .env.local
 ```
 
 Then add the following content to the file:
@@ -113,30 +113,25 @@ Note: You'll only need to update the STRIPE_WEBHOOK_SECRET for now. We'll config
 
 ### 3. Supabase Initialization
 
-1. Initialize Supabase:
+1. Start Supabase with debug mode enabled:
    ```bash
-   npx supabase init
-   ```
-
-2. Start Supabase:
-   ```bash
-   npx supabase start
+   npx supabase start --debug
    ```
 
    This will start all the Supabase services using Docker. The first time you run this it will take a while to download the Docker images.
+
+   > **IMPORTANT**: The current project ID name in `supabase/config.toml` can be used once, but if you create multiple projects with this template, you must change the `project_id` value in the file to a unique name for each new project to avoid Docker conflicts.
 
 Your Supabase instance is now running on http://localhost:54321, and you can access the Supabase Studio on http://localhost:54323.
 
 ### 4. Database Table Setup
 
-Before proceeding with Stripe integration, you need to create the necessary tables in Supabase:
+You need to create the necessary tables in Supabase for products and prices:
 
-1. Create a new migration:
-```bash
-npx supabase migration new add_products_and_prices_tables
-```
+1. Access the Supabase Studio at http://localhost:54323
+2. Go to the SQL Editor
+3. Paste and run the following SQL query to create the required tables:
 
-2. Add the following SQL to the generated migration file:
 ```sql
 -- Create products table
 CREATE TABLE IF NOT EXISTS products (
@@ -181,11 +176,6 @@ CREATE POLICY "Allow public read-only access to prices" ON prices
   FOR SELECT USING (true);
 ```
 
-3. Apply the migration:
-```bash
-npx supabase migration up
-```
-
 ### 5. Stripe CLI and Webhook Setup
 
 1. Login to Stripe via CLI:
@@ -204,7 +194,7 @@ npx supabase migration up
    ```
    STRIPE_WEBHOOK_SECRET=whsec_...
    ```
-   Update the `STRIPE_WEBHOOK_SECRET` in your `.env` file with this value.
+   Update the `STRIPE_WEBHOOK_SECRET` in your `.env.local` file with this value and save the file for the changes to take effect.
 
 ### 6. Start the Next.js Development Server
 
@@ -233,6 +223,32 @@ You should see a 200 response in your console for each successful webhook event,
 
 ---
 
+## Supabase Model Context Protocol (MCP)
+
+The Supabase Model Context Protocol allows you to interact with your Supabase database using AI assistants that support MCP. The Supabase MCP server automatically connects to your local Supabase instance, so no additional setup is required if you've already started Supabase locally.
+
+### Running the Supabase MCP Server
+
+**Important:** The Supabase MCP server is pre-configured to connect to your local Supabase instance. No configuration is needed as it works automatically after you run Supabase locally.
+
+The project has been configured to automatically load the Supabase MCP server when using Cursor. The configuration is in `.cursor/mcp.json`.
+
+**Note:** You may need to restart Cursor after starting Supabase locally for the MCP connection to work properly.
+
+### Available Supabase MCP Features
+
+The Supabase MCP server provides direct SQL access to your database, allowing you to:
+
+- Query database tables and views
+- Verify data storage from webhook events
+- Check database schema
+- Test database operations
+- Debug data-related issues
+
+These tools can be accessed through AI assistants that support the Model Context Protocol.
+
+---
+
 ## Stripe Model Context Protocol (MCP)
 
 The Stripe Model Context Protocol allows you to interact with Stripe API using AI assistants that support MCP.
@@ -241,42 +257,24 @@ The Stripe Model Context Protocol allows you to interact with Stripe API using A
 
 Before using the Stripe MCP server, you need to configure your Stripe API key:
 
-1. If using Cursor's MCP integration, edit the `.cursor/mcp.json` file to include your Stripe API key:
-   ```json
-   {
-     "mcpServers": {
-       "stripe": {
-         "command": "cmd",
-         "args": ["/c", "npx", "-y", "@stripe/mcp", "--tools=all", "--api-key=sk_test_YOUR_KEY_HERE"]
-       }
-     }
-   }
-   ```
-   Replace `sk_test_YOUR_KEY_HERE` with your actual Stripe secret key.
-
-2. If using the batch file method, edit the `run-stripe-mcp.bat` file to include your Stripe API key.
-
-There are three ways to run the Stripe MCP server:
-
-#### Option 1: Using the npm script
-
-```bash
-npm run stripe-mcp
+Edit the `.cursor/mcp.json` file to include your Stripe API key:
+```json
+{
+  "mcpServers": {
+    "stripe": {
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@stripe/mcp", "--tools=all", "--api-key=sk_test_YOUR_KEY_HERE"]
+    }
+  }
+}
 ```
+Replace `sk_test_YOUR_KEY_HERE` with your actual Stripe secret key.
 
-#### Option 2: Using the batch file
+The project has been configured to automatically load the Stripe MCP server when using Cursor.
 
-```bash
-run-stripe-mcp.bat
-```
+**Note:** You may need to restart Cursor after updating the API key in the configuration file for the changes to take effect.
 
-#### Option 3: Using Cursor's MCP integration
-
-The project has been configured to automatically load the Stripe MCP server when using Cursor. The configuration is in `.cursor/mcp.json`.
-
-**Note:** You may need to restart Cursor after updating the API key in the configuration file.
-
-**Important:** When you first start the application in Cursor, you will see a notification that "2 MCPs have been detected". You should press "Enable" to activate both the Stripe and Supabase MCPs. The full configuration of these MCPs will be handled later in the setup process.
+**Important:** When you first start the application in Cursor, you will see a notification that "2 MCPs have been detected". You should press "Enable" to activate both the Stripe and Supabase MCPs.
 
 ### Available Stripe Tools
 
@@ -296,49 +294,47 @@ The Stripe MCP server provides the following tools:
 
 These tools can be accessed through AI assistants that support the Model Context Protocol.
 
-> **Note:** The agent-toolkit directory in this repository is not required for MCP functionality. It can be safely removed to reduce the project size since we're using NPX to run the MCP servers directly.
-
 ---
 
-## Supabase Model Context Protocol (MCP)
+## VAPI Model Context Protocol (MCP)
 
-The Supabase Model Context Protocol allows you to interact with your Supabase database using AI assistants that support MCP. The Supabase MCP server automatically connects to your local Supabase instance, so no additional setup is required if you've already started Supabase locally.
+The VAPI Model Context Protocol allows you to interact with your VAPI assistants directly through Cursor. The MCP server is pre-configured in this project and just needs your API key to work.
 
-### Running the Supabase MCP Server
+### Setting Up VAPI MCP
 
-**Important:** The Supabase MCP server is pre-configured to connect to your local Supabase instance. Do not change the connection settings in the configuration files as they're already set up correctly for the local development environment.
+To use the VAPI MCP, you only need to add your VAPI API key to the configuration file:
 
-There are three ways to run the Supabase MCP server:
+1. Edit the `.cursor/mcp.json` file to include your VAPI API key:
+   ```json
+   "vapi-mcp-server": {
+     "command": "npx",
+     "args": [
+         "-y",
+         "@vapi-ai/mcp-server"
+     ],
+     "env": {
+       "VAPI_TOKEN": "your_vapi_token_here"
+     }
+   }
+   ```
+   Replace `your_vapi_token_here` with your actual VAPI token.
 
-#### Option 1: Using the npm script
+2. Restart Cursor to apply the changes.
 
-```bash
-npm run supabase-mcp
-```
+The VAPI MCP server will automatically load when you restart Cursor, and you'll be able to manage your voice assistants directly through the MCP tools.
 
-#### Option 2: Using the batch file
+### Available VAPI MCP Features
 
-```bash
-run-supabase-mcp.bat
-```
+The VAPI MCP server provides tools to:
 
-#### Option 3: Using Cursor's MCP integration
+- List all your VAPI assistants
+- Create new voice assistants
+- Update existing assistants
+- Get assistant details
+- Manage calls and phone numbers
+- Configure voice models and transcription services
 
-The project has been configured to automatically load the Supabase MCP server when using Cursor. The configuration is in `.cursor/mcp.json`.
-
-**Note:** You may need to restart Cursor after making any changes or if the MCP connection isn't working properly.
-
-### Available Supabase MCP Features
-
-The Supabase MCP server provides direct SQL access to your database, allowing you to:
-
-- Query database tables and views
-- Verify data storage from webhook events
-- Check database schema
-- Test database operations
-- Debug data-related issues
-
-These tools can be accessed through AI assistants that support the Model Context Protocol.
+These tools make it easy to create and manage voice assistants without leaving your development environment.
 
 ---
 
@@ -350,23 +346,31 @@ This project uses the [Supabase UI Library](https://supabase.com/ui/docs/getting
 ```
 npx shadcn@latest add https://supabase.com/ui/r/supabase-client-nextjs.json
 ```
-- Sets up a Supabase client for SSR and App Router support.
+- Sets up a Supabase client for SSR and App Router support with Next.js
+- Provides authentication helpers, type-safe database queries, and server-side rendering support
 - If you already have a Supabase client, you may skip this step.
 
 ### 2. Add Password-based Authentication
 ```
 npx shadcn@latest add https://supabase.com/ui/r/password-based-auth-nextjs.json
 ```
-- Adds all pages and components for password-based authentication.
+- Adds complete authentication flow with sign-in, sign-up, password reset, and account management
+- Creates responsive, accessible, themed auth pages and components
+- Implements security best practices and proper error handling
 - See the environment variables section above for required environment variables.
 
 ### 3. Add Dropzone (File Upload) Component
 ```
 npx shadcn@latest add https://supabase.com/ui/r/dropzone-nextjs.json
 ```
-- Adds a drag-and-drop file upload component for Supabase Storage.
+- Adds a complete drag-and-drop file upload system with preview and progress indicators
+- Integrates directly with Supabase Storage for file handling
+- Includes built-in validation, error handling, and accessibility features
 
 ### 4. Add Infinite Query Hook
 ```
 npx shadcn@latest add https://supabase.com/ui/r/infinite-query-hook.json
 ```
+- Implements efficient data pagination with infinite scrolling capabilities
+- Provides optimized performance for large datasets with React Query integration
+- Includes TypeScript types and simple API for querying Supabase tables

@@ -7,6 +7,16 @@
     "stripe": {
       "command": "cmd",
       "args": ["/c", "npx", "-y", "@stripe/mcp", "--tools=all", "--api-key=$env:STRIPE_SECRET_KEY"]
+    },
+    "vapi-mcp-server": {
+      "command": "npx",
+      "args": [
+          "-y",
+          "@vapi-ai/mcp-server"
+      ],
+      "env": {
+        "VAPI_TOKEN": "<your_vapi_token>"
+      }
     }
   }
 } 
