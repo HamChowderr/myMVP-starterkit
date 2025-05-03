@@ -1,4 +1,4 @@
-# Supabase Starter
+# myMVP-starterkit
 
 A starter template with Supabase and Next.js.
 
@@ -35,7 +35,20 @@ If you don't have these tools installed, follow these instructions:
    - Make sure Docker Desktop is running before starting Supabase
 
 5. **Install Stripe CLI**:
-   - Windows: Download the zip file `stripe_1.26.1_windows_x86_64.zip` from [Stripe CLI Releases](https://github.com/stripe/stripe-cli/releases/latest), extract it, and add the folder to your PATH
+   - Windows: 
+     1. Download the zip file `stripe_1.26.1_windows_x86_64.zip` from [Stripe CLI Releases](https://github.com/stripe/stripe-cli/releases/latest)
+     2. Extract it to a folder on your computer
+     3. Add the folder to your PATH environment variable:
+        - Copy the full path to the folder where you extracted the stripe.exe file (right-click on the stripe file in File Explorer, hold Shift and select "Copy as path")
+        - Press Windows key + X and select "System"
+        - Click on "Advanced system settings" on the right
+        - Click the "Environment Variables" button near the bottom
+        - In the "System variables" section, find and select "Path"
+        - Click "Edit"
+        - Click "New"
+        - Paste the folder path you copied earlier (without the filename itself and without .exe, just the folder path)
+        - Click "OK" on all dialog boxes to save changes
+     4. Verify installation: Open a new Command Prompt or PowerShell window and run `stripe --version`
    - macOS: Use `brew install stripe/stripe-cli/stripe`
    - Linux: Download the appropriate package from [Stripe CLI Releases](https://github.com/stripe/stripe-cli/releases/latest)
    - Verify installation: `stripe --version`
@@ -54,26 +67,58 @@ Note: We'll be using `npx` to run Supabase CLI commands instead of installing it
 
 Follow this step-by-step workflow to set up the complete project:
 
-### 1. Basic Setup and Supabase Initialization
+### 1. Basic Setup
 
 1. Clone the repository and install dependencies:
    ```bash
-   git clone <repository-url>
-   cd supabase-starter
+   git clone https://github.com/HamChowderr/myMVP-starterkit.git
+   cd myMVP-starterkit
    npm install
    ```
 
-2. Initialize Supabase:
+### 2. Environment Variables Setup
+
+Create an empty `.env` file at the root of your project with one of these commands:
+
+**Windows (PowerShell):**
+```powershell
+New-Item -Path .env -ItemType "file" -Force
+```
+
+**Mac/Linux (Bash):**
+```bash
+touch .env
+```
+
+Then add the following content to the file:
+
+```
+# supabase
+# These values never change when supabase is ran locally regardless of project
+NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321/
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU
+SUPABASE_DATABASE_PASSWORD=postgres
+SUPABASE_JWT_SECRET=super-secret-jwt-token-with-at-least-32-characters-long
+# SUPABASE_PROJECT_REF=SUPABASE_PROJECT_REF
+# stripe
+STRIPE_SECRET_KEY=STRIPE_SECRET_KEY
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET
+# host
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+```
+
+Note: You'll only need to update the STRIPE_WEBHOOK_SECRET for now. We'll configure the other Stripe keys later when setting up the MCP server.
+
+### 3. Supabase Initialization
+
+1. Initialize Supabase:
    ```bash
    npx supabase init
    ```
 
-3. Copy the environment variables:
-   ```bash
-   cp .env.local .env
-   ```
-
-4. Start Supabase:
+2. Start Supabase:
    ```bash
    npx supabase start
    ```
@@ -82,7 +127,7 @@ Follow this step-by-step workflow to set up the complete project:
 
 Your Supabase instance is now running on http://localhost:54321, and you can access the Supabase Studio on http://localhost:54323.
 
-### 2. Database Table Setup
+### 4. Database Table Setup
 
 Before proceeding with Stripe integration, you need to create the necessary tables in Supabase:
 
@@ -141,26 +186,7 @@ CREATE POLICY "Allow public read-only access to prices" ON prices
 npx supabase migration up
 ```
 
-### 3. Environment Variables Setup
-
-Create or update your `.env.local` file with the following variables:
-```
-# Supabase variables - DO NOT CHANGE for local development
-NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0
-
-# Stripe variables - These need to be set from your Stripe account
-STRIPE_PUBLISHABLE_KEY=pk_test_... # From Stripe Dashboard > Developers > API keys
-STRIPE_SECRET_KEY=sk_test_...      # From Stripe Dashboard > Developers > API keys
-# STRIPE_WEBHOOK_SECRET will be added later after setting up the webhook
-```
-
-To get your Stripe API keys:
-1. Go to the [Stripe Dashboard](https://dashboard.stripe.com)
-2. Navigate to Developers > API keys
-3. Copy your publishable key (starts with `pk_test_`) and secret key (starts with `sk_test_`)
-
-### 4. Stripe CLI and Webhook Setup
+### 5. Stripe CLI and Webhook Setup
 
 1. Login to Stripe via CLI:
    ```bash
@@ -178,9 +204,9 @@ To get your Stripe API keys:
    ```
    STRIPE_WEBHOOK_SECRET=whsec_...
    ```
-   Add this to your `.env.local` file.
+   Update the `STRIPE_WEBHOOK_SECRET` in your `.env` file with this value.
 
-### 5. Start the Next.js Development Server
+### 6. Start the Next.js Development Server
 
 Start your Next.js application:
 ```bash
@@ -189,7 +215,7 @@ npm run dev
 
 Your application is now running on http://localhost:3000.
 
-### 6. Create Products and Prices via Stripe Webhooks
+### 7. Create Products and Prices via Stripe Webhooks
 
 With everything set up, trigger the Stripe events to create products and prices:
 ```bash
@@ -197,7 +223,9 @@ stripe trigger product.created
 stripe trigger price.created
 ```
 
-### 7. Verify Setup
+You should see a 200 response in your console for each successful webhook event, confirming that your application has processed the events correctly.
+
+### 8. Verify Setup
 
 - Open [http://localhost:54323](http://localhost:54323) to access Supabase Studio
 - Use the Table Editor to confirm that the products and prices have been created in your Supabase database
@@ -247,6 +275,8 @@ run-stripe-mcp.bat
 The project has been configured to automatically load the Stripe MCP server when using Cursor. The configuration is in `.cursor/mcp.json`.
 
 **Note:** You may need to restart Cursor after updating the API key in the configuration file.
+
+**Important:** When you first start the application in Cursor, you will see a notification that "2 MCPs have been detected". You should press "Enable" to activate both the Stripe and Supabase MCPs. The full configuration of these MCPs will be handled later in the setup process.
 
 ### Available Stripe Tools
 
