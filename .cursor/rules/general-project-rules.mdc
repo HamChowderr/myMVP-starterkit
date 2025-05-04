@@ -34,10 +34,33 @@ supabase migration up
 When encountering errors, add the `--debug` flag to the command for detailed output:
 
 ```bash
-# For troubleshooting:
-npx supabase start --debug
-npx supabase migration up --debug
-npx supabase db reset --debug
+# Supabase management commands with debug flag
+npx supabase start --debug                   # Start all Supabase services with detailed logging
+npx supabase stop --debug                    # Stop all Supabase services with detailed logging
+npx supabase status --debug                  # Show status of local Supabase services with detailed info
+
+# Migration commands with debug flag
+npx supabase migration up --debug            # Apply pending migrations with detailed logging
+npx supabase migration new name --debug      # Create a new migration with verbose output
+npx supabase migration list --debug          # List all migrations with detailed status
+npx supabase migration repair --debug        # Repair migrations state with detailed logging
+
+# Database commands with debug flag
+npx supabase db reset --debug                # Reset database to clean state with detailed logging
+npx supabase db push --debug                 # Push schema changes to remote database with detailed logs
+npx supabase db pull --debug                 # Pull schema changes from remote database with details
+npx supabase db diff --debug                 # Show diff between local and remote database with details
+npx supabase db lint --debug                 # Check database for issues with detailed reporting
+npx supabase db dump --debug                 # Dump database schema with verbose output
+
+# Gen commands with debug flag
+npx supabase gen types typescript --debug    # Generate TypeScript types with detailed output
+npx supabase gen enums typescript --debug    # Generate enums with detailed logs
+
+# Function commands with debug flag
+npx supabase functions list --debug          # List all edge functions with detailed output
+npx supabase functions serve --debug         # Serve functions locally with detailed logging
+npx supabase functions deploy --debug        # Deploy functions with detailed deployment logs
 ```
 
 ### Essential Commands
