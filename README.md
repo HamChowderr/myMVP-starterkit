@@ -1,6 +1,18 @@
 # myMVP-starterkit
 
-A starter template with Supabase and Next.js.
+This starter template is designed for developers looking to build modern web applications with powerful AI-assisted IDE tools like Cursor & WindSurf. It's perfect for those transitioning away from no-code/low-code platforms like Lovable and v0, who want more control and flexibility over their stack.
+
+We are committed to regularly updating this project with new features, patterns, and best practices. Our goal is to help developers learn these powerful tools and technologies through practical, real-world examples that you can build upon.
+
+## What's Included
+
+- **Frontend**: Next.js 15 with App Router, Tailwind CSS, and shadcn/ui components
+- **Backend**: Supabase for authentication, database, and storage
+- **Billing**: Complete Stripe integration with webhook handling
+- **Local Development**: Full local development setup with Docker
+- **AI-Ready**: MCP (Model Context Protocol) configurations for AI-assisted development
+
+This template shows you how to build a complete SaaS application with authentication, billing, and database functionality without the limitations of no-code platforms.
 
 ## Prerequisites
 
@@ -124,57 +136,305 @@ Note: You'll only need to update the STRIPE_WEBHOOK_SECRET for now. We'll config
 
 Your Supabase instance is now running on http://localhost:54321, and you can access the Supabase Studio on http://localhost:54323.
 
+#### Troubleshooting Docker Port Conflicts
+
+If you encounter an error like this:
+```
+failed to start docker container: Error response from daemon: failed to set up container networking: driver failed programming external connectivity on endpoint supabase_inbucket_starter-kit: failed to bind host port for 0.0.0.0:54324: address already in use
+```
+
+Try these solutions:
+
+1. Stop all Supabase instances and remove containers:
+   ```bash
+   npx supabase stop
+   docker rm -f $(docker ps -a -q --filter "name=supabase")
+   ```
+
+2. Check and kill processes using conflicting ports:
+   ```bash
+   # Windows (PowerShell)
+   netstat -ano | findstr 5432
+   # Then kill the process: 
+   taskkill /PID [PID] /F
+   ```
+
+3. Restart Docker Desktop completely
+
+4. Change the project ID in `supabase/config.toml` to a unique name
+
 ### 4. Database Table Setup
 
-You need to create the necessary tables in Supabase for products and prices:
+#### Using AI Assistant (Recommended)
 
-1. Access the Supabase Studio at http://localhost:54323
-2. Go to the SQL Editor
-3. Paste and run the following SQL query to create the required tables:
+1. Copy the following SQL query:
 
 ```sql
--- Create products table
-CREATE TABLE IF NOT EXISTS products (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  stripe_id TEXT UNIQUE NOT NULL,
-  active BOOLEAN DEFAULT TRUE,
+-- Create products table with gateway-agnostic design
+CREATE TABLE IF NOT EXISTS public.billing_products (
+  gateway_product_id TEXT PRIMARY KEY,
+  gateway_name TEXT NOT NULL,
   name TEXT NOT NULL,
   description TEXT,
-  image TEXT,
-  metadata JSONB,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+  features JSONB,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  is_visible_in_ui BOOLEAN NOT NULL DEFAULT TRUE,
+  UNIQUE(gateway_name, gateway_product_id)
 );
 
--- Create prices table
-CREATE TABLE IF NOT EXISTS prices (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  stripe_id TEXT UNIQUE NOT NULL,
-  product_id UUID REFERENCES products(id),
-  active BOOLEAN DEFAULT TRUE,
-  description TEXT,
-  unit_amount BIGINT,
-  currency TEXT,
-  type TEXT,
-  interval TEXT,
-  interval_count INTEGER,
-  trial_period_days INTEGER,
-  metadata JSONB,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+-- Create prices table with gateway-agnostic design
+CREATE TABLE IF NOT EXISTS public.billing_prices (
+  gateway_price_id TEXT PRIMARY KEY DEFAULT gen_random_uuid(),
+  gateway_product_id TEXT NOT NULL REFERENCES public.billing_products(gateway_product_id) ON DELETE CASCADE,
+  currency TEXT NOT NULL,
+  amount DECIMAL NOT NULL,
+  recurring_interval TEXT NOT NULL,
+  recurring_interval_count INT NOT NULL DEFAULT 0,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  tier TEXT,
+  free_trial_days INT,
+  gateway_name TEXT NOT NULL,
+  UNIQUE(gateway_name, gateway_price_id)
 );
 
 -- Add RLS
-ALTER TABLE products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE prices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.billing_products ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.billing_prices ENABLE ROW LEVEL SECURITY;
 
 -- Create policies
-CREATE POLICY "Allow public read-only access to products" ON products
+CREATE POLICY "Allow public read-only access to billing_products" ON public.billing_products
   FOR SELECT USING (true);
   
-CREATE POLICY "Allow public read-only access to prices" ON prices
+CREATE POLICY "Allow public read-only access to billing_prices" ON public.billing_prices
   FOR SELECT USING (true);
+
+-- Create customers table with gateway-agnostic design
+CREATE TABLE IF NOT EXISTS public.billing_customers (
+  gateway_customer_id TEXT PRIMARY KEY,
+  user_id UUID NOT NULL,
+  gateway_name TEXT NOT NULL,
+  default_currency TEXT,
+  billing_email TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}',
+  UNIQUE (gateway_name, gateway_customer_id)
+);
+
+-- Enable RLS for customers
+ALTER TABLE public.billing_customers ENABLE ROW LEVEL SECURITY;
+
+-- Create policy for customers
+CREATE POLICY "Allow workspace members to view their customers" ON public.billing_customers
+  FOR SELECT USING (true);
+
+-- Create invoices table with gateway-agnostic design
+CREATE TABLE IF NOT EXISTS public.billing_invoices (
+  gateway_invoice_id TEXT PRIMARY KEY,
+  gateway_customer_id TEXT NOT NULL REFERENCES public.billing_customers(gateway_customer_id) ON DELETE CASCADE,
+  gateway_product_id TEXT REFERENCES public.billing_products(gateway_product_id) ON DELETE CASCADE,
+  gateway_price_id TEXT REFERENCES public.billing_prices(gateway_price_id) ON DELETE CASCADE,
+  gateway_name TEXT NOT NULL,
+  amount DECIMAL NOT NULL,
+  currency TEXT NOT NULL,
+  STATUS TEXT NOT NULL,
+  due_date DATE,
+  paid_date DATE,
+  hosted_invoice_url TEXT,
+  UNIQUE(gateway_name, gateway_invoice_id)
+);
+
+-- Enable RLS for invoices
+ALTER TABLE public.billing_invoices ENABLE ROW LEVEL SECURITY;
+
+-- Create policy for invoices
+CREATE POLICY "Allow workspace members to view their invoices" ON public.billing_invoices
+  FOR SELECT USING (true);
+
+-- Create one-time payments table with gateway-agnostic design
+CREATE TABLE IF NOT EXISTS public.billing_one_time_payments (
+  gateway_charge_id TEXT PRIMARY KEY NOT NULL,
+  gateway_customer_id TEXT NOT NULL REFERENCES public.billing_customers(gateway_customer_id) ON DELETE CASCADE,
+  gateway_name TEXT NOT NULL,
+  amount DECIMAL NOT NULL,
+  currency TEXT NOT NULL,
+  STATUS TEXT NOT NULL,
+  charge_date TIMESTAMP WITH TIME ZONE NOT NULL,
+  gateway_invoice_id TEXT NOT NULL REFERENCES public.billing_invoices(gateway_invoice_id) ON DELETE CASCADE,
+  gateway_product_id TEXT NOT NULL REFERENCES public.billing_products(gateway_product_id) ON DELETE CASCADE,
+  gateway_price_id TEXT NOT NULL REFERENCES public.billing_prices(gateway_price_id) ON DELETE CASCADE
+);
+
+-- Enable RLS for one-time payments
+ALTER TABLE public.billing_one_time_payments ENABLE ROW LEVEL SECURITY;
+
+-- Create policy for one-time payments
+CREATE POLICY "Allow workspace members to view their one-time payments" ON public.billing_one_time_payments
+  FOR SELECT USING (true);
+
+-- Create subscriptions table with gateway-agnostic design
+CREATE TABLE IF NOT EXISTS public.billing_subscriptions (
+  id UUID PRIMARY KEY DEFAULT "extensions"."uuid_generate_v4"() NOT NULL,
+  gateway_customer_id TEXT NOT NULL REFERENCES public.billing_customers(gateway_customer_id) ON DELETE CASCADE,
+  gateway_name TEXT NOT NULL,
+  gateway_subscription_id TEXT NOT NULL,
+  gateway_product_id TEXT NOT NULL REFERENCES public.billing_products(gateway_product_id) ON DELETE CASCADE,
+  gateway_price_id TEXT NOT NULL REFERENCES public.billing_prices(gateway_price_id) ON DELETE CASCADE,
+  STATUS public.subscription_status NOT NULL,
+  current_period_start DATE NOT NULL,
+  current_period_end DATE NOT NULL,
+  currency TEXT NOT NULL,
+  is_trial BOOLEAN NOT NULL,
+  trial_ends_at DATE,
+  cancel_at_period_end BOOLEAN NOT NULL,
+  quantity INT,
+  UNIQUE(gateway_name, gateway_subscription_id)
+);
+
+-- Enable RLS for subscriptions
+ALTER TABLE public.billing_subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- Create policy for subscriptions
+CREATE POLICY "Allow workspace members to view their subscriptions" ON public.billing_subscriptions
+  FOR SELECT USING (true);
+
+-- Example queries for your application:
+
+-- Select all products
+SELECT *, billing_prices(*)
+FROM billing_products
+WHERE gateway_name = 'stripe';
+
+-- Select single product
+SELECT *, billing_prices(*)
+FROM billing_products
+WHERE gateway_product_id = :productId
+AND gateway_name = 'stripe'
+LIMIT 1;
+
+-- Upsert product
+INSERT INTO billing_products (
+  gateway_product_id, gateway_name, name, description, 
+  is_visible_in_ui, features, active
+)
+VALUES (
+  :productId, 'stripe', :name, :description,
+  :isVisibleInUi, :features, :active
+)
+ON CONFLICT (gateway_product_id, gateway_name)
+DO UPDATE SET
+  name = :name,
+  description = :description,
+  is_visible_in_ui = :isVisibleInUi,
+  features = :features,
+  active = :active;
+
+-- Update product visibility
+UPDATE billing_products
+SET is_visible_in_ui = :isVisible
+WHERE gateway_product_id = :productId
+AND gateway_name = 'stripe';
+
+-- Select single price
+SELECT *
+FROM billing_prices
+WHERE gateway_price_id = :priceId
+AND gateway_name = 'stripe'
+LIMIT 1;
+
+-- Upsert price
+INSERT INTO billing_prices (
+  gateway_product_id, gateway_name, gateway_price_id,
+  currency, amount, recurring_interval,
+  recurring_interval_count, active
+)
+VALUES (
+  :productId, 'stripe', :priceId,
+  :currency, :amount, :recurringInterval,
+  :recurringIntervalCount, :active
+)
+ON CONFLICT (gateway_price_id)
+DO UPDATE SET
+  currency = :currency,
+  amount = :amount,
+  recurring_interval = :recurringInterval,
+  recurring_interval_count = :recurringIntervalCount,
+  active = :active;
+
+-- Insert new customer
+INSERT INTO billing_customers (
+  gateway_name, gateway_customer_id, billing_email, user_id
+)
+VALUES (
+  'stripe', :customerId, :billingEmail, auth.uid()
+)
+RETURNING *;
+
+-- Get customer by customer ID
+SELECT *
+FROM billing_customers
+WHERE gateway_customer_id = :customerId
+AND gateway_name = 'stripe'
+LIMIT 1;
+
+-- Get customer by user ID
+SELECT *
+FROM billing_customers
+WHERE user_id = auth.uid()
+AND gateway_name = 'stripe'
+LIMIT 1;
+
+-- Get subscriptions by user ID
+SELECT s.*
+FROM billing_subscriptions s
+JOIN billing_customers c ON s.gateway_customer_id = c.gateway_customer_id
+WHERE c.user_id = auth.uid()
+AND s.gateway_name = 'stripe';
+
+-- Get invoices by user ID
+SELECT i.*
+FROM billing_invoices i
+JOIN billing_customers c ON i.gateway_customer_id = c.gateway_customer_id
+WHERE c.user_id = auth.uid()
+AND i.gateway_name = 'stripe';
+
+-- Get one-time purchases by customer ID
+SELECT *, billing_products(*), billing_prices(*), billing_invoices(*)
+FROM billing_one_time_payments
+WHERE gateway_customer_id = :customerId
+AND gateway_name = 'stripe';
 ```
+
+2. Paste it into the AI Assistant chat and say: "Create these tables for me in Supabase."
+
+3. Run the migration to save these changes:
+   ```bash
+   npx supabase migration new add_billing_tables
+   ```
+
+4. Apply the migration to your Supabase database:
+   ```bash
+   npx supabase migration up
+   ```
+
+   If you encounter any errors, try running with the debug flag:
+   ```bash
+   npx supabase migration up --debug
+   ```
+
+5. If you continue to have issues, you may need to reset your local database:
+   ```bash
+   npx supabase db reset
+   ```
+   Note: This will erase all data in your local database and reapply migrations.
+
+6. The AI will help create the tables in Supabase Studio, and the migration will preserve them in your project.
+
+#### Alternative Method: Manual Setup
+
+You can also create the tables manually:
+
+1. Access the Supabase Studio at http://localhost:54323
+2. Go to the SQL Editor
+3. Paste and run the SQL query above
 
 ### 5. Stripe CLI and Webhook Setup
 

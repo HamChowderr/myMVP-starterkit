@@ -81,14 +81,20 @@ export async function POST(req: NextRequest) {
       const product = event.data.object;
       console.log('Product created:', product.id, product.name);
       
-      // Insert into products table
+      // Insert into billing_products table
       const { error } = await supabase
-        .from('products')
+        .from('billing_products')
         .insert([
           {
-            id: product.id,
+            gateway_product_id: product.id,
+            gateway_name: 'stripe',
             name: product.name,
-            // Add other product fields as needed
+            description: product.description,
+            features: product.metadata?.features ? JSON.parse(product.metadata.features) : null,
+            active: product.active,
+            is_visible_in_ui: product.metadata?.visible_in_ui !== 'false', // Default to true unless explicitly set to false
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
           },
         ]);
       
@@ -105,16 +111,22 @@ export async function POST(req: NextRequest) {
       const price = event.data.object;
       console.log('Price created:', price.id, price.product, price.unit_amount);
       
-      // Insert into prices table
+      // Insert into billing_prices table
       const { error } = await supabase
-        .from('prices')
+        .from('billing_prices')
         .insert([
           {
-            id: price.id,
-            product_id: price.product,
-            unit_amount: price.unit_amount,
+            gateway_price_id: price.id,
+            gateway_product_id: price.product,
             currency: price.currency,
-            // Add other price fields as needed
+            amount: price.unit_amount / 100, // Convert from cents to decimal
+            recurring_interval: price.recurring?.interval || null,
+            recurring_interval_count: price.recurring?.interval_count || 0,
+            free_trial_days: price.recurring?.trial_period_days || null,
+            active: price.active,
+            gateway_name: 'stripe',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
           },
         ]);
       
@@ -127,6 +139,253 @@ export async function POST(req: NextRequest) {
       }
       
       console.log('Price inserted successfully');
+    } else if (event.type === 'customer.created' || event.type === 'customer.updated') {
+      const customer = event.data.object;
+      console.log('Customer event:', event.type, customer.id);
+      
+      // Check if metadata contains a workspace_id
+      const workspaceId = customer.metadata?.workspace_id;
+      if (!workspaceId) {
+        console.warn('No workspace_id found in customer metadata', customer.id);
+        // Skip processing as we need a workspace_id to link the customer
+        return NextResponse.json(
+          { received: true, warning: 'No workspace_id found in customer metadata' },
+          { status: 200 }
+        );
+      }
+      
+      // Format the customer data
+      const customerData = {
+        gateway_customer_id: customer.id,
+        workspace_id: workspaceId,
+        gateway_name: 'stripe',
+        default_currency: customer.currency,
+        billing_email: customer.email || 'unknown@example.com',
+        metadata: customer.metadata || {},
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      // Upsert the customer
+      const { error } = await supabase
+        .from('billing_customers')
+        .upsert([customerData], { 
+          onConflict: 'gateway_name,gateway_customer_id',
+          ignoreDuplicates: false 
+        });
+      
+      if (error) {
+        console.error('Error upserting customer:', error);
+        return NextResponse.json(
+          { error: `Error upserting customer: ${error.message}` },
+          { status: 500 }
+        );
+      }
+      
+      console.log('Customer upserted successfully');
+    } else if (event.type === 'invoice.created' || event.type === 'invoice.updated') {
+      const invoice = event.data.object;
+      console.log('Invoice event:', event.type, invoice.id);
+      
+      // Get the first line item if present
+      const lineItem = invoice.lines?.data?.[0];
+      
+      // Format the invoice data
+      const invoiceData = {
+        gateway_invoice_id: invoice.id,
+        gateway_customer_id: invoice.customer,
+        gateway_product_id: lineItem?.price?.product || null,
+        gateway_price_id: lineItem?.price?.id || null,
+        gateway_name: 'stripe',
+        amount: invoice.total / 100, // Convert from cents to decimal
+        currency: invoice.currency,
+        status: invoice.status,
+        due_date: invoice.due_date ? new Date(invoice.due_date * 1000).toISOString().split('T')[0] : null,
+        paid_date: invoice.status === 'paid' ? new Date().toISOString().split('T')[0] : null,
+        hosted_invoice_url: invoice.hosted_invoice_url,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      // Upsert the invoice
+      const { error } = await supabase
+        .from('billing_invoices')
+        .upsert([invoiceData], { 
+          onConflict: 'gateway_name,gateway_invoice_id',
+          ignoreDuplicates: false 
+        });
+      
+      if (error) {
+        console.error('Error upserting invoice:', error);
+        return NextResponse.json(
+          { error: `Error upserting invoice: ${error.message}` },
+          { status: 500 }
+        );
+      }
+      
+      console.log('Invoice upserted successfully');
+    } else if (event.type === 'charge.succeeded') {
+      const charge = event.data.object;
+      console.log('Charge succeeded:', charge.id);
+      
+      // Make sure this is associated with an invoice
+      if (!charge.invoice) {
+        console.warn('Charge has no associated invoice', charge.id);
+        return NextResponse.json(
+          { received: true, warning: 'Charge has no associated invoice' },
+          { status: 200 }
+        );
+      }
+      
+      // Retrieve the invoice to get product and price info
+      let invoice;
+      if (stripe) {
+        try {
+          invoice = await stripe.invoices.retrieve(charge.invoice, {
+            expand: ['lines.data.price.product']
+          });
+        } catch (err: any) {
+          console.error('Error fetching invoice from Stripe:', err);
+          return NextResponse.json(
+            { error: `Error fetching invoice: ${err.message}` },
+            { status: 500 }
+          );
+        }
+      } else {
+        console.warn('Stripe client not initialized, cannot fetch invoice');
+        return NextResponse.json(
+          { received: true, warning: 'Stripe client not initialized' },
+          { status: 200 }
+        );
+      }
+      
+      // Get the first invoice line item
+      const lineItem = invoice.lines.data[0];
+      if (!lineItem) {
+        console.warn('No line items in invoice', charge.invoice);
+        return NextResponse.json(
+          { received: true, warning: 'No line items in invoice' },
+          { status: 200 }
+        );
+      }
+      
+      // Ensure we have product and price information from the line item
+      const priceInfo = (lineItem as any).price;
+      if (!priceInfo || !priceInfo.product) {
+        console.warn('Missing price or product information in invoice line item', charge.invoice);
+        return NextResponse.json(
+          { received: true, warning: 'Missing price or product information in invoice line item' },
+          { status: 200 }
+        );
+      }
+      
+      // Format the payment data
+      const paymentData = {
+        gateway_charge_id: charge.id,
+        gateway_customer_id: charge.customer,
+        gateway_name: 'stripe',
+        amount: charge.amount / 100, // Convert from cents to decimal
+        currency: charge.currency,
+        status: charge.status,
+        charge_date: new Date(charge.created * 1000).toISOString(),
+        gateway_invoice_id: charge.invoice,
+        gateway_product_id: priceInfo.product.id,
+        gateway_price_id: priceInfo.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      // Insert the one-time payment
+      const { error } = await supabase
+        .from('billing_one_time_payments')
+        .upsert([paymentData], { 
+          onConflict: 'gateway_name,gateway_charge_id',
+          ignoreDuplicates: false 
+        });
+      
+      if (error) {
+        console.error('Error upserting payment:', error);
+        return NextResponse.json(
+          { error: `Error upserting payment: ${error.message}` },
+          { status: 500 }
+        );
+      }
+      
+      console.log('Payment recorded successfully');
+    } else if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
+      const subscription = event.data.object;
+      console.log('Subscription event:', event.type, subscription.id);
+      
+      // Get the first item (most subscriptions have only one item)
+      const item = subscription.items.data[0];
+      if (!item) {
+        console.error('No subscription items found');
+        return NextResponse.json(
+          { error: 'No subscription items found' },
+          { status: 400 }
+        );
+      }
+      
+      // Format the subscription data
+      const subscriptionData = {
+        gateway_subscription_id: subscription.id,
+        gateway_customer_id: subscription.customer,
+        gateway_name: 'stripe',
+        gateway_product_id: item.price.product,
+        gateway_price_id: item.price.id,
+        status: subscription.status.toUpperCase(),
+        current_period_start: new Date(subscription.current_period_start * 1000).toISOString().split('T')[0],
+        current_period_end: new Date(subscription.current_period_end * 1000).toISOString().split('T')[0],
+        currency: item.price.currency,
+        is_trial: !!subscription.trial_end,
+        trial_ends_at: subscription.trial_end 
+          ? new Date(subscription.trial_end * 1000).toISOString().split('T')[0] 
+          : null,
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        quantity: item.quantity,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      // Upsert the subscription
+      const { error } = await supabase
+        .from('billing_subscriptions')
+        .upsert([subscriptionData], { 
+          onConflict: 'gateway_name,gateway_subscription_id',
+          ignoreDuplicates: false 
+        });
+      
+      if (error) {
+        console.error('Error upserting subscription:', error);
+        return NextResponse.json(
+          { error: `Error upserting subscription: ${error.message}` },
+          { status: 500 }
+        );
+      }
+      
+      console.log('Subscription upserted successfully');
+    } else if (event.type === 'customer.subscription.deleted') {
+      const subscription = event.data.object;
+      console.log('Subscription deleted:', subscription.id);
+      
+      // Delete the subscription record
+      const { error } = await supabase
+        .from('billing_subscriptions')
+        .delete()
+        .match({ 
+          gateway_subscription_id: subscription.id,
+          gateway_name: 'stripe'
+        });
+      
+      if (error) {
+        console.error('Error deleting subscription:', error);
+        return NextResponse.json(
+          { error: `Error deleting subscription: ${error.message}` },
+          { status: 500 }
+        );
+      }
+      
+      console.log('Subscription deleted successfully');
     }
 
     // Return a 200 success response
