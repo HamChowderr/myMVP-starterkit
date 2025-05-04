@@ -104,3 +104,20 @@ If encountering port conflicts:
 4. Follow the established patterns for database tables and RLS policies
 5. Use the correct environment variables as defined in `.env.local`
 
+## Supabase MCP Tool Usage
+
+### Read-Only Operations
+
+The Supabase MCP tool (local_db tool) is configured for **read-only operations only**. When using this tool:
+
+1. **Do**: Use it for SELECT queries to read data from tables
+2. **Do**: Use it to check schema information 
+3. **Do**: Use it to verify database structure
+
+4. **Don't**: Attempt to use it for any write operations (INSERT, UPDATE, DELETE)
+5. **Don't**: Use it to modify schema (CREATE, ALTER, DROP)
+6. **Don't**: Use it for any data manipulation
+
+For any database modifications, always create proper migration files using the Supabase migration commands.
+
+

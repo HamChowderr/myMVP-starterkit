@@ -79,6 +79,61 @@ Note: We'll be using `npx` to run Supabase CLI commands instead of installing it
 
 Follow this step-by-step workflow to set up the complete project:
 
+### Command Execution Guidelines
+
+#### Always Use NPX Commands
+
+All Supabase and CLI commands should be executed using `npx` instead of globally installed tools. This ensures:
+
+- Everyone uses the same CLI version
+- No global dependencies to manage
+- No conflicts with other Supabase projects
+- Easier setup process
+
+```bash
+# ✅ DO THIS:
+npx supabase start
+npx supabase migration up
+
+# ❌ NOT THIS:
+supabase start
+supabase migration up
+```
+
+#### Supabase Commands with Debug Flag
+
+Always add the `--debug` flag when troubleshooting Supabase issues:
+
+```bash
+# Supabase management commands with debug flag
+npx supabase start --debug                   # Start all Supabase services with detailed logging
+npx supabase stop --debug                    # Stop all Supabase services with detailed logging
+npx supabase status --debug                  # Show status of local Supabase services with detailed info
+
+# Migration commands with debug flag
+npx supabase migration up --debug            # Apply pending migrations with detailed logging
+npx supabase migration new name --debug      # Create a new migration with verbose output
+npx supabase migration list --debug          # List all migrations with detailed status
+npx supabase migration repair --debug        # Repair migrations state with detailed logging
+
+# Database commands with debug flag
+npx supabase db reset --debug                # Reset database to clean state with detailed logging
+npx supabase db push --debug                 # Push schema changes to remote database with detailed logs
+npx supabase db pull --debug                 # Pull schema changes from remote database with details
+npx supabase db diff --debug                 # Show diff between local and remote database with details
+npx supabase db lint --debug                 # Check database for issues with detailed reporting
+npx supabase db dump --debug                 # Dump database schema with verbose output
+
+# Gen commands with debug flag
+npx supabase gen types typescript --debug    # Generate TypeScript types with detailed output
+npx supabase gen enums typescript --debug    # Generate enums with detailed logs
+
+# Function commands with debug flag
+npx supabase functions list --debug          # List all edge functions with detailed output
+npx supabase functions serve --debug         # Serve functions locally with detailed logging
+npx supabase functions deploy --debug        # Deploy functions with detailed deployment logs
+```
+
 ### 1. Basic Setup
 
 1. Clone the repository and install dependencies:
@@ -207,8 +262,16 @@ ALTER TABLE public.billing_prices ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow public read-only access to billing_products" ON public.billing_products
   FOR SELECT USING (true);
   
+-- Add policy for service role to manage billing_products
+CREATE POLICY "Allow service role to manage billing_products" ON public.billing_products
+  FOR ALL USING (auth.role() = 'service_role');
+  
 CREATE POLICY "Allow public read-only access to billing_prices" ON public.billing_prices
   FOR SELECT USING (true);
+
+-- Add policy for service role to manage billing_prices  
+CREATE POLICY "Allow service role to manage billing_prices" ON public.billing_prices
+  FOR ALL USING (auth.role() = 'service_role');
 
 -- Create customers table with gateway-agnostic design
 CREATE TABLE IF NOT EXISTS public.billing_customers (
@@ -227,6 +290,10 @@ ALTER TABLE public.billing_customers ENABLE ROW LEVEL SECURITY;
 -- Create policy for customers
 CREATE POLICY "Allow workspace members to view their customers" ON public.billing_customers
   FOR SELECT USING (true);
+
+-- Add policy for service role to manage billing_customers
+CREATE POLICY "Allow service role to manage billing_customers" ON public.billing_customers
+  FOR ALL USING (auth.role() = 'service_role');
 
 -- Create invoices table with gateway-agnostic design
 CREATE TABLE IF NOT EXISTS public.billing_invoices (
@@ -251,6 +318,10 @@ ALTER TABLE public.billing_invoices ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Allow workspace members to view their invoices" ON public.billing_invoices
   FOR SELECT USING (true);
 
+-- Add policy for service role to manage billing_invoices
+CREATE POLICY "Allow service role to manage billing_invoices" ON public.billing_invoices
+  FOR ALL USING (auth.role() = 'service_role');
+
 -- Create one-time payments table with gateway-agnostic design
 CREATE TABLE IF NOT EXISTS public.billing_one_time_payments (
   gateway_charge_id TEXT PRIMARY KEY NOT NULL,
@@ -271,6 +342,10 @@ ALTER TABLE public.billing_one_time_payments ENABLE ROW LEVEL SECURITY;
 -- Create policy for one-time payments
 CREATE POLICY "Allow workspace members to view their one-time payments" ON public.billing_one_time_payments
   FOR SELECT USING (true);
+
+-- Add policy for service role to manage billing_one_time_payments
+CREATE POLICY "Allow service role to manage billing_one_time_payments" ON public.billing_one_time_payments
+  FOR ALL USING (auth.role() = 'service_role');
 
 -- Create subscriptions table with gateway-agnostic design
 CREATE TABLE IF NOT EXISTS public.billing_subscriptions (
@@ -297,6 +372,10 @@ ALTER TABLE public.billing_subscriptions ENABLE ROW LEVEL SECURITY;
 -- Create policy for subscriptions
 CREATE POLICY "Allow workspace members to view their subscriptions" ON public.billing_subscriptions
   FOR SELECT USING (true);
+
+-- Add policy for service role to manage billing_subscriptions
+CREATE POLICY "Allow service role to manage billing_subscriptions" ON public.billing_subscriptions
+  FOR ALL USING (auth.role() = 'service_role');
 
 -- Example queries for your application:
 
@@ -499,13 +578,15 @@ The project has been configured to automatically load the Supabase MCP server wh
 
 ### Available Supabase MCP Features
 
-The Supabase MCP server provides direct SQL access to your database, allowing you to:
+The Supabase MCP server provides **read-only SQL access** to your database, allowing you to:
 
-- Query database tables and views
+- Query database tables and views using SELECT statements
 - Verify data storage from webhook events
 - Check database schema
-- Test database operations
+- Test read operations
 - Debug data-related issues
+
+**Important:** The Supabase MCP tool is configured for **read-only operations only**. Do not attempt to use it for any data modification (INSERT, UPDATE, DELETE) or schema changes. For database modifications, always create proper migration files using the Supabase migration commands.
 
 These tools can be accessed through AI assistants that support the Model Context Protocol.
 

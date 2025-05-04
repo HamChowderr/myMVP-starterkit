@@ -14,14 +14,25 @@ const stripe = stripeSecretKey
 // Initialize Supabase client using environment variables
 // These must be set in .env.local for local development and in your hosting platform for production
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;  // Service role key for admin operations
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-// Create Supabase client
-const supabase = createClient(supabaseUrl!, supabaseKey!);
+// Create Supabase client with service role key if available, otherwise fallback to anon key
+const supabase = createClient(
+  supabaseUrl!,
+  supabaseServiceKey || supabaseAnonKey!,
+  {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    }
+  }
+);
 
 // Log configuration status for debugging
 console.log('Webhook configuration:');
 console.log('- Supabase URL configured:', !!supabaseUrl);
+console.log('- Supabase using service role key:', !!supabaseServiceKey);
 console.log('- Stripe client initialized:', !!stripe);
 console.log('- Webhook secret configured:', !!webhookSecret);
 
@@ -30,7 +41,7 @@ export async function POST(req: NextRequest) {
   
   try {
     // Check for required Supabase configuration
-    if (!supabaseUrl || !supabaseKey) {
+    if (!supabaseUrl || !supabaseAnonKey) {
       console.error('Missing Supabase configuration');
       return NextResponse.json(
         { error: 'Server configuration error: Missing Supabase configuration' },
@@ -38,8 +49,17 @@ export async function POST(req: NextRequest) {
       );
     }
     
+    // Debug 1: Log request headers
+    console.log('Debug 1: Request headers', {
+      'stripe-signature': req.headers.get('stripe-signature') ? 'Present' : 'Missing',
+      'content-type': req.headers.get('content-type')
+    });
+    
     // Get the raw body as text
     const text = await req.text();
+    
+    // Debug 2: Log request body length
+    console.log('Debug 2: Request body length', text.length);
     
     // Get the signature from the headers
     const sig = req.headers.get('stripe-signature');
@@ -49,6 +69,14 @@ export async function POST(req: NextRequest) {
     
     // Determine if this is a verified Stripe webhook or a manual test
     const isManualTest = !sig || !webhookSecret || !stripe;
+    
+    // Debug 3: Log verification mode
+    console.log('Debug 3: Webhook verification mode', {
+      isManualTest,
+      hasSignature: !!sig,
+      hasWebhookSecret: !!webhookSecret,
+      hasStripeClient: !!stripe
+    });
     
     if (isManualTest) {
       console.log('Manual webhook test - skipping signature verification');
@@ -74,12 +102,38 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Debug 4: Log event details
+    console.log('Debug 4: Event details', {
+      type: event.type,
+      id: event.id,
+      apiVersion: event.api_version,
+      created: event.created,
+      dataObjectId: event.data?.object?.id || 'N/A'
+    });
+
     console.log(`Event received: ${event.type}`);
+
+    // Debug 5: Log Supabase connection details
+    console.log('Debug 5: Supabase connection details', {
+      supabaseUrl: supabaseUrl,
+      usingServiceRole: !!supabaseServiceKey,
+      usingAnonKey: !supabaseServiceKey && !!supabaseAnonKey
+    });
 
     // Handle different event types
     if (event.type === 'product.created') {
       const product = event.data.object;
       console.log('Product created:', product.id, product.name);
+      
+      // Debug 6: Log product data before insert
+      console.log('Debug 6: Product data before insert', {
+        gateway_product_id: product.id,
+        name: product.name,
+        description: product.description?.substring(0, 50) || 'null',
+        features: product.metadata?.features ? 'Present' : 'Missing',
+        active: product.active,
+        is_visible_in_ui: product.metadata?.visible_in_ui !== 'false'
+      });
       
       // Insert into billing_products table
       const { error } = await supabase
