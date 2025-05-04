@@ -1,0 +1,106 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# General Project Rules
+
+This document outlines the general rules and guidelines for working with this project.
+
+## Command Execution Guidelines
+
+### Always Use NPX Commands
+
+All Supabase and CLI commands should be executed using `npx` instead of globally installed tools. This ensures:
+
+- Everyone uses the same CLI version
+- No global dependencies to manage
+- No conflicts with other Supabase projects
+- Easier setup process
+
+**Examples:**
+```bash
+# ✅ DO THIS:
+npx supabase start
+npx supabase migration up
+
+# ❌ NOT THIS:
+supabase start
+supabase migration up
+```
+
+### Debugging Commands
+
+When encountering errors, add the `--debug` flag to the command for detailed output:
+
+```bash
+# For troubleshooting:
+npx supabase start --debug
+npx supabase migration up --debug
+npx supabase db reset --debug
+```
+
+### Essential Commands
+
+Here are some important commands for working with this project:
+
+1. **Starting Supabase:**
+   ```bash
+   npx supabase start --debug
+   ```
+
+2. **Stopping Supabase:**
+   ```bash
+   npx supabase stop
+   ```
+   IMPORTANT: Always run this command before closing the project to properly shut down all Supabase services.
+
+3. **Applying Migrations:**
+   ```bash
+   npx supabase migration up
+   ```
+
+4. **Creating New Migrations:**
+   ```bash
+   npx supabase migration new [migration_name]
+   ```
+
+5. **Resetting Database (Use Cautiously):**
+   ```bash
+   npx supabase db reset
+   ```
+   Note: This will erase all data in your local database and reapply migrations.
+
+6. **Checking Supabase Status:**
+   ```bash
+   npx supabase status
+   ```
+
+### Troubleshooting Docker Port Conflicts
+
+If encountering port conflicts:
+
+1. **Stop and remove all Supabase containers:**
+   ```bash
+   npx supabase stop
+   docker rm -f $(docker ps -a -q --filter "name=supabase")
+   ```
+
+2. **Check for conflicting processes:**
+   ```bash
+   # Windows (PowerShell)
+   netstat -ano | findstr 5432
+   # Then kill the process: 
+   taskkill /PID [PID] /F
+   ```
+
+3. **Change the project ID** in `supabase/config.toml` to a unique name for each new project to avoid Docker conflicts
+
+## Development Best Practices
+
+1. Always follow the data fetching guidelines in `/doc/data-fetching-guidelines.md`
+2. Check for existing functionality in the codebase before implementing new features
+3. Update documentation when making significant changes
+4. Follow the established patterns for database tables and RLS policies
+5. Use the correct environment variables as defined in `.env.local`
+

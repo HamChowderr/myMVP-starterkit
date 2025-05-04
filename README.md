@@ -134,6 +134,8 @@ Note: You'll only need to update the STRIPE_WEBHOOK_SECRET for now. We'll config
 
    > **IMPORTANT**: The current project ID name in `supabase/config.toml` can be used once, but if you create multiple projects with this template, you must change the `project_id` value in the file to a unique name for each new project to avoid Docker conflicts.
 
+   > **IMPORTANT**: Always remember to run `npx supabase stop` before closing the project to properly shut down all Supabase services.
+
 Your Supabase instance is now running on http://localhost:54321, and you can access the Supabase Studio on http://localhost:54323.
 
 #### Troubleshooting Docker Port Conflicts
